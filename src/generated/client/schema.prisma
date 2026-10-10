@@ -1,0 +1,393 @@
+// ============================================================================
+// Schema Prisma — Sistema de Vendas (MVP)
+// Baseado em spec.md — Turso/LibSQL (sqld self-hosted) via provider sqlite
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ----------------------------------------------------------------------------
+// Enums
+// ----------------------------------------------------------------------------
+
+enum Role {
+  ADMIN //Administrador
+  VENDEDOR //Vendedor
+  ENTREGADOR //Entregador
+}
+
+enum OrderStatus {
+  DRAFT //Rascunho
+  CONFIRMED //Confirmado
+  SEPARATING //Em separação
+  READY_FOR_DELIVERY //Pronto p/entrega
+  OUT_FOR_DELIVERY //Saiu p/entrega
+  DELIVERED //Entregue
+  CANCELLED //Cancelado
+}
+
+enum PaymentMethod {
+  DINHEIRO //Dinheiro  
+  PIX //PIX
+  CARTAO //Cartão
+  OUTRO //Outro
+}
+
+enum PaymentStatus {
+  PENDING //Pendente
+  PAID //Pago  
+  CANCELLED //Cancelado
+}
+
+enum StockMovementType {
+  IN //Entrada de estoque
+  OUT //Saída de estoque
+  ADJUSTMENT //Ajuste de estoque (positivo ou negativo)
+}
+
+enum DeliveryStatus {
+  ASSIGNED //Atribuída a um entregador
+  OUT_FOR_DELIVERY //Saiu para entrega
+  DELIVERED //Entregue
+  FAILED //Falhou
+  CANCELLED //Cancelada
+}
+
+enum DeliveryOccurrenceType {
+  CUSTOMER_ABSENT //Cliente ausente
+  WRONG_ADDRESS //Endereço incorreto
+  REFUSED //Recusado
+  LOGISTICS_PROBLEM //Problema de logística
+  OTHER //Outro
+}
+
+// ----------------------------------------------------------------------------
+// User
+// ----------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid()) //UUID
+  name         String //Nome completo
+  email        String   @unique //Email (login)
+  passwordHash String //Senha (hash)   
+  role         Role //Papel do usuário (ADMIN, VENDEDOR, ENTREGADOR)   
+  active       Boolean  @default(true) //Ativo ou inativo
+  createdAt    DateTime @default(now()) //Data de criação
+  updatedAt    DateTime @updatedAt //Data de atualização
+
+  sellerProfile        SellerProfile? // Perfil de vendedor (se role = VENDEDOR)
+  quantityDiscounts    QuantityDiscount[] // Descontos por quantidade (se role = VENDEDOR)
+  ordersAsSeller       Order[]              @relation("OrderSeller") // Pedidos como vendedor (se role = VENDEDOR)
+  approvedPaymentTerms Order[]              @relation("OrderPaymentTermsApprover")
+  deliveriesAsCourier  Delivery[]           @relation("DeliveryCourier") // Entregas como entregador (se role = ENTREGADOR)  
+  paymentsRecorded     Payment[]            @relation("PaymentRecorder")
+  stockMovements       StockMovement[] // Movimentos de estoque realizados pelo usuário                             
+  deliveryOccurrences  DeliveryOccurrence[] // Ocorrências de entrega registradas pelo usuário
+  auditLogs            AuditLog[] // Logs de auditoria realizados pelo usuário
+
+  @@index([role]) // Índice para consultas por papel do usuário
+}
+
+// ----------------------------------------------------------------------------
+// Category / Product
+// ----------------------------------------------------------------------------
+
+model Category {
+  id          String   @id @default(cuid()) //UUID
+  name        String //Nome da categoria
+  description String? //Descrição da categoria
+  active      Boolean  @default(true) //Ativo ou inativo
+  createdAt   DateTime @default(now()) //Data de criação
+  updatedAt   DateTime @updatedAt //Data de atualização
+
+  products          Product[] // Produtos pertencentes a esta categoria
+  quantityDiscounts QuantityDiscount[]
+}
+
+model Product {
+  id          String   @unique @default(cuid()) //UUID
+  categoryId  String //ID da categoria à qual o produto pertence
+  name        String //Nome do produto 
+  sku         Int      @id @default(autoincrement()) //SKU (Stock Keeping Unit) — identificador único do produto
+  description String? //Descrição do produto
+  costPrice   Float //Preço de custo do produto
+  active      Boolean  @default(true) //Ativo ou inativo
+  createdAt   DateTime @default(now()) //Data de criação
+  updatedAt   DateTime @updatedAt //Data de atualização
+
+  // Unidade em que o estoque é contado e exibido (ex: "UN", "KG", "L")
+  unit                 String  @default("UN")
+  // Unidade em que o produto costuma ser comprado, se diferente da unit (ex: "CAIXA")
+  purchaseUnit         String?
+  // Fator de conversão: 1 purchaseUnit = quantos "unit" (ex: 1 CAIXA = 12 UN -> 12)
+  unitsPerPurchaseUnit Float?
+
+  category          Category           @relation(fields: [categoryId], references: [id]) // Relação com a categoria do produto
+  basePrices        BasePrice[] // Preços base do produto por localização
+  orderItems        OrderItem[] // Itens de pedido que incluem este produto
+  stockMovements    StockMovement[] // Movimentos de estoque relacionados a este produto 
+  quantityDiscounts QuantityDiscount[]
+
+  @@index([categoryId]) // Índice para consultas por categoria do produto 
+}
+
+// ----------------------------------------------------------------------------
+// Location / Customer
+// ----------------------------------------------------------------------------
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String
+  city      String
+  state     String
+  zipCode   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customers  Customer[]
+  basePrices BasePrice[]
+
+  @@index([city, state])
+}
+
+model Customer {
+  id         String   @id @default(cuid())
+  name       String
+  document   String?
+  phone      String?
+  email      String?
+  address    String?
+  locationId String
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  location Location @relation(fields: [locationId], references: [id])
+  orders   Order[]
+
+  @@index([locationId])
+}
+
+// ----------------------------------------------------------------------------
+// Regras comerciais: BasePrice / SellerProfile / QuantityDiscount
+// ----------------------------------------------------------------------------
+
+model BasePrice {
+  id         String   @id @default(cuid())
+  productId  String
+  locationId String
+  price      Float
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  product  Product  @relation(fields: [productId], references: [id])
+  location Location @relation(fields: [locationId], references: [id])
+
+  @@unique([productId, locationId])
+}
+
+model SellerProfile {
+  id                     String   @id @default(cuid())
+  sellerId               String   @unique
+  defaultMarginPercent   Float
+  minMarginPercent       Float
+  maxMarginPercent       Float
+  allowOrderMarginChange Boolean  @default(false)
+  active                 Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  seller User @relation(fields: [sellerId], references: [id])
+}
+
+model QuantityDiscount {
+  id              String   @id @default(cuid())
+  sellerId        String
+  categoryId      String?
+  productId       String?
+  baseUnit        String?
+  unit            String?
+  minQuantity     Int
+  maxQuantity     Int?
+  discountPercent Float
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  seller   User      @relation(fields: [sellerId], references: [id])
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  product  Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId, categoryId, baseUnit, unit])
+  @@index([sellerId, productId])
+}
+
+// ----------------------------------------------------------------------------
+// Order / OrderItem / Payment
+// ----------------------------------------------------------------------------
+
+model Order {
+  id                       String      @id @default(cuid())
+  customerId               String
+  sellerId                 String
+  status                   OrderStatus @default(DRAFT)
+  defaultMarginPercent     Float
+  appliedMarginPercent     Float
+  subtotal                 Float
+  discount                 Float
+  total                    Float
+  notes                    String?
+  offlineSyncId            String?     @unique
+  paymentTermsApprovedAt   DateTime?
+  paymentTermsApprovedById String?
+  paymentDueAt             DateTime?
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  customer             Customer        @relation(fields: [customerId], references: [id])
+  seller               User            @relation("OrderSeller", fields: [sellerId], references: [id])
+  paymentTermsApprover User?           @relation("OrderPaymentTermsApprover", fields: [paymentTermsApprovedById], references: [id], onDelete: SetNull)
+  items                OrderItem[]
+  payments             Payment[]
+  deliveries           Delivery[]
+  stockMovements       StockMovement[]
+
+  @@index([customerId])
+  @@index([sellerId])
+  @@index([status])
+}
+
+model OrderItem {
+  id                      String   @id @default(cuid())
+  orderId                 String
+  productId               String
+  quantity                Int
+  enteredQuantity         Float?
+  enteredUnit             String?
+  checkedForDelivery      Boolean  @default(false)
+  basePrice               Float
+  marginPercent           Float
+  quantityDiscountPercent Float
+  unitPrice               Float
+  total                   Float
+  createdAt               DateTime @default(now())
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  orderId      String
+  recordedById String?
+  method       PaymentMethod
+  amount       Float
+  status       PaymentStatus @default(PENDING)
+  paidAt       DateTime?
+  createdAt    DateTime      @default(now())
+
+  order      Order @relation(fields: [orderId], references: [id])
+  recordedBy User? @relation("PaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([recordedById])
+}
+
+// ----------------------------------------------------------------------------
+// Estoque
+// ----------------------------------------------------------------------------
+
+model StockMovement {
+  id        String            @id @default(cuid())
+  productId String
+  userId    String
+  orderId   String?
+  type      StockMovementType
+  quantity  Int
+  reason    String?
+  createdAt DateTime          @default(now())
+
+  // Unidade em que o lançamento foi digitado (pode ser a unit base do
+  // produto, ou a purchaseUnit)
+  enteredUnit     String?
+  // Quantidade digitada nessa unidade, antes da conversão pra base
+  enteredQuantity Float?
+  // Custo por unidade base daquele lote (só em entradas / type = IN)
+  unitCost        Float?
+
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  order   Order?  @relation(fields: [orderId], references: [id])
+
+  @@index([productId])
+  @@index([orderId])
+}
+
+// ----------------------------------------------------------------------------
+// Entregas
+// ----------------------------------------------------------------------------
+
+model Delivery {
+  id          String         @id @default(cuid())
+  orderId     String
+  courierId   String?
+  status      DeliveryStatus @default(ASSIGNED)
+  assignedAt  DateTime?
+  startedAt   DateTime?
+  deliveredAt DateTime?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  order       Order                @relation(fields: [orderId], references: [id])
+  courier     User?                @relation("DeliveryCourier", fields: [courierId], references: [id])
+  occurrences DeliveryOccurrence[]
+
+  @@index([orderId])
+  @@index([courierId])
+  @@index([status])
+}
+
+model DeliveryOccurrence {
+  id          String                 @id @default(cuid())
+  deliveryId  String
+  createdBy   String
+  type        DeliveryOccurrenceType
+  description String?
+  createdAt   DateTime               @default(now())
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id])
+  creator  User     @relation(fields: [createdBy], references: [id])
+
+  @@index([deliveryId])
+}
+
+// ----------------------------------------------------------------------------
+// Auditoria
+// ----------------------------------------------------------------------------
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+}

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#17233d" />
+    <title>Vendas+ offline</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f6f7ef;
+        color: #17233d;
+        --ink: #17233d;
+        --lime: #c6f247;
+        --paper: #f6f7ef;
+        --line: #e1e5d8;
+        --muted-ink: #647080;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+      }
+      * { box-sizing: border-box; }
+      body { min-height: 100vh; margin: 0; }
+      header { background: #17233d; color: white; padding: 1rem max(1rem, calc((100vw - 76rem) / 2)); box-shadow: 0 2px 12px #17233d24; }
+      header .muted { color: #c7d2e3; }
+      main { max-width: 76rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+      h1 { margin: 0; font-size: 1.25rem; letter-spacing: 0; }
+      h2 { margin: 1.75rem 0 .85rem; font-size: 1.15rem; letter-spacing: 0; }
+      h3 { margin-top: 0; }
+      p { line-height: 1.55; }
+      a { color: #145f4b; font-weight: 650; }
+      a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #55b99b; outline-offset: 2px; }
+      .nav { display: flex; gap: .5rem; flex-wrap: wrap; padding-bottom: 1rem; border-bottom: 1px solid #dce4ee; }
+      .nav a { display: inline-flex; align-items: center; min-height: 2.5rem; padding: .55rem .85rem; border-radius: .6rem; color: #334155; text-decoration: none; }
+      .nav a:hover { background: #e8eef5; color: #145f4b; }
+      .page-actions { display: flex; justify-content: flex-end; margin: 1.25rem 0; }
+      .button { display: inline-flex; align-items: center; justify-content: center; min-height: 2.8rem; padding: .7rem 1.1rem; border: 0; border-radius: .65rem; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; transition: background .15s ease, transform .15s ease, box-shadow .15s ease; }
+      .button-primary { color: white; background: #087f5b; box-shadow: 0 4px 10px #087f5b2b; }
+      .button-primary:hover { color: white; background: #066b4d; box-shadow: 0 6px 14px #087f5b38; transform: translateY(-1px); }
+      .notice, .entry { border: 1px solid #e0e7ef; border-radius: .85rem; background: white; padding: 1rem 1.1rem; margin: .85rem 0; box-shadow: 0 2px 8px #17233d08; }
+      .notice { border-color: #f0d58a; background: #fff9e8; }
+      .muted { color: #64748b; font-size: .9rem; }
+      .table-wrap { overflow-x: auto; background: white; border: 1px solid #e0e7ef; border-radius: .85rem; box-shadow: 0 2px 8px #17233d08; }
+      table { width: 100%; border-collapse: collapse; min-width: 38rem; font-size: .92rem; }
+      th, td { border-bottom: 1px solid #edf1f5; padding: .8rem .9rem; text-align: left; }
+      th { color: #64748b; background: #f8fafc; font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+      tbody tr:last-child td { border-bottom: 0; }
+      tbody tr:hover { background: #f8fafc; }
+      .status { display: inline-block; border-radius: 999px; background: #e8eef5; padding: .25rem .65rem; font-size: .8rem; font-weight: 650; }
+      input, select, textarea { max-width: 100%; border: 1px solid #cbd5e1; border-radius: .55rem; font: inherit; }
+      button:disabled, .button.disabled { cursor: not-allowed; opacity: .55; }
+      ul { padding-left: 1.25rem; }
+      body { background: linear-gradient(135deg, #fafaf4, #edf3e8); color: var(--ink); }
+      header { display: flex; align-items: center; min-height: 4.5rem; border-bottom: 1px solid #ffffff24; padding-top: .8rem; padding-bottom: .8rem; }
+      header .brand { display: flex; align-items: center; gap: .7rem; color: white; text-decoration: none; font-size: 1rem; font-weight: 700; }
+      .brand-mark { display: inline-grid; width: 2.25rem; aspect-ratio: 1; place-items: center; border-radius: .65rem; background: var(--lime); color: var(--ink); box-shadow: 3px 3px 0 #809d26; }
+      .brand-plus { color: var(--lime); }
+      .mode-label { margin-left: .25rem; border: 1px solid #ffffff35; border-radius: 999px; padding: .2rem .5rem; color: #d6dfeb; font-size: .65rem; letter-spacing: .08em; }
+      main { max-width: 80rem; padding-top: 1.75rem; }
+      h1, h2, h3 { color: var(--ink); font-weight: 650; }
+      h2 { padding-bottom: .55rem; border-bottom: 1px solid var(--line); }
+      a { color: var(--ink); }
+      .nav { gap: .35rem; border-bottom-color: var(--line); }
+      .nav a { border-radius: .5rem; color: #455066; }
+      .nav a:hover { background: #e8eddc; color: var(--ink); }
+      .entry, .table-wrap { border-color: var(--line); border-radius: .65rem; box-shadow: 0 3px 12px #17233d0a; }
+      .notice { border-color: #d9e99e; background: #f4f9df; color: #33441e; }
+      .muted { color: var(--muted-ink); }
+      th { background: #f0f2e8; color: #536078; letter-spacing: 0; }
+      tbody tr:hover { background: #f7f9ef; }
+      .status { border-radius: .4rem; background: #eef2df; color: var(--ink); }
+      label { display: block; color: #344057; font-size: .9rem; font-weight: 600; }
+      input, select, textarea { display: block; width: 100%; margin-top: .35rem; border-color: #cbd1c0; border-radius: .45rem; background: #fff; padding: .65rem .75rem; color: var(--ink); }
+      button, .button { min-height: 2.6rem; border: 0; border-radius: .45rem; background: var(--ink); color: white; padding: .65rem .95rem; font: inherit; font-weight: 650; }
+      button:hover, .button:hover { background: #283957; color: white; }
+      .button-primary { background: var(--ink); color: white; box-shadow: none; }
+      .button-primary:hover { background: #283957; }
+      .button-confirm { background: var(--lime); color: var(--ink); }
+      .button-confirm:hover { background: #b6e63d; color: var(--ink); }
+      .button-secondary { border: 1px solid var(--line); background: #fff; color: var(--ink); }
+      .button-secondary:hover { background: #f0f2e8; color: var(--ink); }
+      @media (max-width: 600px) {
+        main { padding: 1rem .8rem 3rem; }
+        header { padding: 1rem .8rem; }
+        .page-actions { justify-content: stretch; }
+        .page-actions .button { width: 100%; }
+        .nav { gap: .25rem; }
+        .nav a { padding: .5rem .65rem; font-size: .9rem; }
+        .entry { padding: .9rem; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+      }
+    </style>
+    <script src="/offline-page.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">V</span>
+        <span>Vendas<span class="brand-plus">+</span></span>
+        <span class="mode-label">OFFLINE</span>
+      </a>
+    </header>
+    <main id="offline-content" aria-live="polite">
+      <p>Carregando dados salvos neste dispositivo...</p>
+    </main>
+  </body>
+</html>
